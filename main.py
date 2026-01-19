@@ -103,10 +103,10 @@ def crear_publicacion(
 @app.get("/")
 def home():
     # Opción A: Un mensaje JSON simple
-    return {"mensaje": "¡Bienvenido a la API de Nexus! Ve a /docs para usarla."}
+    #return {"mensaje": "¡Bienvenido a la API de Nexus! Ve a /docs para usarla."}
 
     # Opción B (Más pro): Que te redirija directo a la documentación
-    # return RedirectResponse(url="/docs")
+    return RedirectResponse(url="/docs")
 
 @app.get("/publicaciones/", response_model=List[Publicacion])
 def ver_publicaciones(session: Session = Depends(get_session)):
@@ -146,3 +146,4 @@ def perfil_usuario(usuario_id: int, session: Session = Depends(get_session)):
         "total_publicaciones": len(publicaciones),
         "publicaciones": publicaciones
     }
+
