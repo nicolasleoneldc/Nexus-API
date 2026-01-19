@@ -1,3 +1,5 @@
+from fastapi.responses import RedirectResponse # <--- Importar esto arriba del todo
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import SQLModel, Field, Session, create_engine, select
@@ -14,7 +16,7 @@ engine = create_engine(sqlite_url, connect_args=connect_args)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-app = FastAPI()
+app = FastAPI() # (0 con la config de docs_url=None)
 
 # --- 3. MODELOS (TABLAS) ---
 class Usuario(SQLModel, table=True):
@@ -97,6 +99,15 @@ def crear_publicacion(
     return publicacion
 
 # VER PUBLICACIONES
+# --- RUTA RAÍZ (LA PUERTA DE ENTRADA) ---
+@app.get("/")
+def home():
+    # Opción A: Un mensaje JSON simple
+    return {"mensaje": "¡Bienvenido a la API de Nexus! Ve a /docs para usarla."}
+
+    # Opción B (Más pro): Que te redirija directo a la documentación
+    # return RedirectResponse(url="/docs")
+
 @app.get("/publicaciones/", response_model=List[Publicacion])
 def ver_publicaciones(session: Session = Depends(get_session)):
     return session.exec(select(Publicacion)).all()
