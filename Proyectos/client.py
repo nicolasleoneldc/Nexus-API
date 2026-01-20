@@ -5,163 +5,162 @@ import requests
 API_URL = "https://nexus-api-ngen.onrender.com"
 
 def main(page: ft.Page):
-    print("⏳ Iniciando App...")
-    page.title = "Nexus App"
+    print("⏳ Iniciando App Modo Seguro...")
+    page.title = "Nexus App (Modo Seguro)"
     page.theme_mode = ft.ThemeMode.DARK
     page.scroll = "adaptive"
     
     # --- VARIABLES DE ESTADO ---
     token_actual = None
     
-    # --- PESTAÑA 1: EL MURO ---
-    columna_posts = ft.Column()
+    # --- CONTENEDOR PRINCIPAL (Aquí cambiaremos las pantallas) ---
+    cuerpo_principal = ft.Container()
+
+    # --- DEFINICIÓN DE PANTALLAS ---
     
-    def cargar_datos(e):
-        print("🔄 Descargando datos...")
-        columna_posts.controls.clear()
-        try:
-            # Timeout de 60 segundos por si Render está dormido
-            res = requests.get(f"{API_URL}/publicaciones/", timeout=60)
-            if res.status_code == 200:
-                posts = res.json()
-                if not posts:
-                    columna_posts.controls.append(ft.Text("📭 No hay novedades."))
-                for post in posts:
-                    columna_posts.controls.append(
-                        ft.Card(
-                            content=ft.Container(
-                                content=ft.Column([
-                                    ft.Text(post['titulo'], size=20, weight="bold", color="cyan"),
-                                    ft.Divider(),
-                                    ft.Text(post['contenido'], size=16),
-                                ]),
-                                padding=15
+    # 1. PANTALLA MURO
+    def obtener_vista_muro():
+        columna_posts = ft.Column()
+        
+        # Función interna para cargar
+        def cargar_datos(e=None):
+            print("🔄 Descargando datos...")
+            columna_posts.controls.clear()
+            columna_posts.controls.append(ft.Text("Cargando...", color="yellow"))
+            page.update()
+            
+            try:
+                res = requests.get(f"{API_URL}/publicaciones/", timeout=60)
+                columna_posts.controls.clear() # Limpiar el "Cargando"
+                
+                if res.status_code == 200:
+                    posts = res.json()
+                    if not posts:
+                        columna_posts.controls.append(ft.Text("📭 No hay novedades."))
+                    for post in posts:
+                        columna_posts.controls.append(
+                            ft.Card(
+                                content=ft.Container(
+                                    content=ft.Column([
+                                        ft.Text(post['titulo'], size=20, weight="bold", color="cyan"),
+                                        ft.Divider(),
+                                        ft.Text(post['contenido'], size=16),
+                                    ]),
+                                    padding=15
+                                )
                             )
                         )
-                    )
-                print("✅ Datos cargados.")
-            else:
-                columna_posts.controls.append(ft.Text("Error al cargar posts", color="red"))
-        except Exception as err:
-            print(f"❌ Error: {err}")
-            columna_posts.controls.append(ft.Text(f"Error de conexión: {err}", color="red"))
-        page.update()
-
-    vista_muro = ft.Container(
-        content=ft.Column([
-            ft.ElevatedButton("🔄 Actualizar", on_click=cargar_datos),
-            columna_posts
-        ]), padding=20
-    )
-
-    # --- PESTAÑA 2: PUBLICAR ---
-    txt_titulo = ft.TextField(label="Título", border_color="blue")
-    txt_contenido = ft.TextField(label="¿Qué estás pensando?", multiline=True, min_lines=3)
-    lbl_resultado_publicar = ft.Text()
-
-    def enviar_publicacion(e):
-        nonlocal token_actual
-        if not token_actual:
-            lbl_resultado_publicar.value = "🔒 ¡Necesitas iniciar sesión primero!"
-            lbl_resultado_publicar.color = "red"
+                    print("✅ Datos cargados.")
+                else:
+                    columna_posts.controls.append(ft.Text("Error del servidor", color="red"))
+            except Exception as err:
+                columna_posts.controls.append(ft.Text(f"Error de conexión: {err}", color="red"))
             page.update()
-            return
 
-        headers = {"Authorization": f"Bearer {token_actual}"}
-        datos = {
-            "titulo": txt_titulo.value,
-            "contenido": txt_contenido.value,
-            "usuario_id": 0
-        }
+        # Botón de actualizar dentro del muro
+        boton_refresh = ft.ElevatedButton("🔄 Refrescar Muro", on_click=cargar_datos)
         
-        try:
-            print("🚀 Enviando publicación...")
-            res = requests.post(f"{API_URL}/publicar/", json=datos, headers=headers)
-            if res.status_code == 200:
-                lbl_resultado_publicar.value = "✅ ¡Publicado con éxito!"
-                lbl_resultado_publicar.color = "green"
-                txt_titulo.value = ""
-                txt_contenido.value = ""
-            else:
-                lbl_resultado_publicar.value = f"❌ Error: {res.text}"
-        except Exception as err:
-            lbl_resultado_publicar.value = f"Error: {err}"
-        page.update()
+        # Cargamos datos al crear la vista
+        cargar_datos() 
+        
+        return ft.Column([boton_refresh, columna_posts])
 
-    vista_publicar = ft.Container(
-        content=ft.Column([
-            ft.Text("Crear Nueva Publicación", size=25, weight="bold"),
-            txt_titulo,
-            txt_contenido,
-            ft.ElevatedButton("🚀 Publicar", on_click=enviar_publicacion),
-            lbl_resultado_publicar
-        ], spacing=20), padding=20
-    )
+    # 2. PANTALLA PUBLICAR
+    def obtener_vista_publicar():
+        txt_titulo = ft.TextField(label="Título", border_color="blue")
+        txt_contenido = ft.TextField(label="Contenido", multiline=True, min_lines=3)
+        lbl_estado = ft.Text()
 
-    # --- PESTAÑA 3: CUENTA ---
-    txt_user = ft.TextField(label="Usuario (ej: AdminSupremo)")
-    txt_pass = ft.TextField(label="Contraseña", password=True, can_reveal_password=True)
-    lbl_login = ft.Text()
+        def enviar(e):
+            if not token_actual:
+                lbl_estado.value = "🔒 Inicia sesión primero"
+                lbl_estado.color = "red"
+                page.update()
+                return
 
-    def iniciar_sesion(e):
-        nonlocal token_actual
-        try:
-            print(f"🔑 Logueando a {txt_user.value}...")
-            datos = {"username": txt_user.value, "password": txt_pass.value}
-            res = requests.post(f"{API_URL}/token", data=datos)
+            headers = {"Authorization": f"Bearer {token_actual}"}
+            datos = {"titulo": txt_titulo.value, "contenido": txt_contenido.value, "usuario_id": 0}
             
-            if res.status_code == 200:
-                info = res.json()
-                token_actual = info['access_token']
-                lbl_login.value = f"🔓 ¡Hola {txt_user.value}! Ya tienes permiso."
-                lbl_login.color = "green"
-                print("✅ Login exitoso.")
-            else:
-                lbl_login.value = "❌ Datos incorrectos"
-                lbl_login.color = "red"
-        except Exception as err:
-            lbl_login.value = f"Error: {err}"
+            try:
+                res = requests.post(f"{API_URL}/publicar/", json=datos, headers=headers)
+                if res.status_code == 200:
+                    lbl_estado.value = "✅ ¡Publicado!"
+                    lbl_estado.color = "green"
+                    txt_titulo.value = ""
+                    txt_contenido.value = ""
+                else:
+                    lbl_estado.value = f"❌ Error: {res.text}"
+            except Exception as err:
+                lbl_estado.value = f"Error: {err}"
+            page.update()
+
+        return ft.Column([
+            ft.Text("Nueva Publicación", size=20, weight="bold"),
+            txt_titulo, 
+            txt_contenido, 
+            ft.ElevatedButton("🚀 Enviar", on_click=enviar),
+            lbl_estado
+        ], spacing=20)
+
+    # 3. PANTALLA CUENTA
+    def obtener_vista_cuenta():
+        txt_user = ft.TextField(label="Usuario")
+        txt_pass = ft.TextField(label="Contraseña", password=True)
+        lbl_login = ft.Text()
+
+        def entrar(e):
+            nonlocal token_actual
+            try:
+                datos = {"username": txt_user.value, "password": txt_pass.value}
+                res = requests.post(f"{API_URL}/token", data=datos)
+                if res.status_code == 200:
+                    token_actual = res.json()['access_token']
+                    lbl_login.value = f"🔓 Bienvenido {txt_user.value}"
+                    lbl_login.color = "green"
+                else:
+                    lbl_login.value = "❌ Datos incorrectos"
+                    lbl_login.color = "red"
+            except Exception as err:
+                lbl_login.value = f"Error: {err}"
+            page.update()
+
+        return ft.Column([
+            ft.Text("Iniciar Sesión", size=20),
+            txt_user, 
+            txt_pass, 
+            ft.ElevatedButton("🔑 Entrar", on_click=entrar),
+            lbl_login
+        ], spacing=20)
+
+    # --- NAVEGACIÓN MANUAL (BOTONES) ---
+    def ir_a_muro(e):
+        cuerpo_principal.content = obtener_vista_muro()
         page.update()
 
-    vista_cuenta = ft.Container(
-        content=ft.Column([
-            ft.Text("Iniciar Sesión", size=25),
-            txt_user,
-            txt_pass,
-            ft.ElevatedButton("🔑 Entrar", on_click=iniciar_sesion),
-            lbl_login
-        ], spacing=20), padding=20
+    def ir_a_publicar(e):
+        cuerpo_principal.content = obtener_vista_publicar()
+        page.update()
+
+    def ir_a_cuenta(e):
+        cuerpo_principal.content = obtener_vista_cuenta()
+        page.update()
+
+    # Barra de botones (Menú)
+    menu = ft.Row([
+        ft.ElevatedButton("🏠 Muro", on_click=ir_a_muro),
+        ft.ElevatedButton("✍️ Publicar", on_click=ir_a_publicar),
+        ft.ElevatedButton("👤 Cuenta", on_click=ir_a_cuenta),
+    ], alignment=ft.MainAxisAlignment.CENTER)
+
+    # Agregamos todo a la página
+    page.add(
+        ft.Text("Nexus App", size=30, weight="bold", color="blue"),
+        menu,
+        ft.Divider(),
+        cuerpo_principal
     )
+    
+    # Cargamos el muro al inicio
+    ir_a_muro(None)
 
-    # --- NAVEGACIÓN "A PRUEBA DE FALLOS" ---
-    # 1. Creamos las pestañas vacías
-    tab1 = ft.Tab()
-    tab2 = ft.Tab()
-    tab3 = ft.Tab()
-
-    # 2. Asignamos propiedades una por una (Evita error de constructor)
-    tab1.text = "Muro"
-    tab1.icon = "home"
-    tab1.content = vista_muro
-
-    tab2.text = "Publicar"
-    tab2.icon = "add_circle"
-    tab2.content = vista_publicar
-
-    tab3.text = "Cuenta"
-    tab3.icon = "person"
-    tab3.content = vista_cuenta
-
-    # 3. Las metemos en el contenedor
-    taps = ft.Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[tab1, tab2, tab3],
-        expand=1,
-    )
-
-    page.add(taps)
-    # Cargamos datos
-    cargar_datos(None)
-
-ft.app(target=main)t
+ft.app(target=main, view=ft.AppView.WEB_BROWSER)
