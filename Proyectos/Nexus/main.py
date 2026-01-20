@@ -135,9 +135,9 @@ def main(page: ft.Page):
         selected_index=0,
         animation_duration=300,
         tabs=[
-            ft.Tab(text="Muro", icon=ft.icons.HOME, content=vista_muro),
-            ft.Tab(text="Publicar", icon=ft.icons.ADD_CIRCLE, content=vista_publicar),
-            ft.Tab(text="Cuenta", icon=ft.icons.PERSON, content=vista_cuenta),
+            ft.Tab(text="Muro", icon="home", content=vista_muro),
+            ft.Tab(text="Publicar", iicon="add_circle", content=vista_publicar),
+            ft.Tab(text="Cuenta", icon="person", content=vista_cuenta),
         ],
         expand=1,
     )
