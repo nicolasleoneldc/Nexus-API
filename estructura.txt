@@ -1,0 +1,5 @@
+Nexus/
+├── main.py          (El cerebro: donde arranca todo)
+├── database.py      (El enchufe: conexión a la base de datos)
+├── models.py        (El plano: cómo son nuestros datos)
+└── requirements.txt (Las herramientas: fastapi, sqlalchemy, etc.)
