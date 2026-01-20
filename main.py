@@ -1,16 +1,31 @@
-from fastapi.responses import RedirectResponse # <--- Importar esto arriba del todo
-
+# Asegúrate de importar 'os' al principio del archivo
+import os 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from typing import List, Optional
 from passlib.context import CryptContext
+from fastapi.responses import RedirectResponse
 
-# --- 1. CONFIGURACIÓN DE BASE DE DATOS ---
-sqlite_file_name = "nexus.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
-connect_args = {"check_same_thread": False}
-engine = create_engine(sqlite_url, connect_args=connect_args)
+# --- 1. CONFIGURACIÓN DE BASE DE DATOS INTELIGENTE ---
+
+# Buscamos si hay una dirección de base de datos en las variables de entorno (Nube)
+database_url = os.environ.get("DATABASE_URL")
+
+# Si existe (estamos en Render), usamos esa. Si no (estamos en local), usamos SQLite.
+if database_url:
+    # Corrección: Render a veces da la URL con "postgres://", pero SQLModel necesita "postgresql://"
+    connection_string = database_url.replace("postgres://", "postgresql://")
+    # Postgres no necesita check_same_thread
+    connect_args = {}
+else:
+    # Modo Local (Tu Netbook)
+    sqlite_file_name = "nexus.db"
+    connection_string = f"sqlite:///{sqlite_file_name}"
+    connect_args = {"check_same_thread": False}
+
+# Creamos el motor con la configuración elegida
+engine = create_engine(connection_string, connect_args=connect_args)
 
 # --- 2. CONFIGURACIÓN DE SEGURIDAD ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -103,10 +118,10 @@ def crear_publicacion(
 @app.get("/")
 def home():
     # Opción A: Un mensaje JSON simple
-    #return {"mensaje": "¡Bienvenido a la API de Nexus! Ve a /docs para usarla."}
+    # return {"mensaje": "¡Bienvenido a la API de Nexus! Ve a /docs para usarla."}
 
     # Opción B (Más pro): Que te redirija directo a la documentación
-    return RedirectResponse(url="/docs")
+     return RedirectResponse(url="/docs")
 
 @app.get("/publicaciones/", response_model=List[Publicacion])
 def ver_publicaciones(session: Session = Depends(get_session)):
@@ -146,4 +161,3 @@ def perfil_usuario(usuario_id: int, session: Session = Depends(get_session)):
         "total_publicaciones": len(publicaciones),
         "publicaciones": publicaciones
     }
-
