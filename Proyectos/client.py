@@ -1,66 +1,143 @@
 import flet as ft
 import requests
 
-# 1. Configuración: La dirección de tu API en la nube
-API_URL = "https://nexus-api-ngen.onrender.com" 
+# TU URL DE RENDER
+API_URL = "https://nexus-api-ngen.onrender.com"
 
 def main(page: ft.Page):
     page.title = "Nexus App"
     page.theme_mode = ft.ThemeMode.DARK
     page.scroll = "adaptive"
     
-    # Título de la app
-    titulo = ft.Text("Novedades de Nexus", size=30, weight="bold", color="blue")
+    # --- VARIABLES DE ESTADO ---
+    token_actual = None
     
-    # Contenedor donde pondremos las publicaciones
+    # --- PESTAÑA 1: EL MURO ---
     columna_posts = ft.Column()
-
-    # Función para traer datos del servidor
+    
     def cargar_datos(e):
-        columna_posts.controls.clear() # Limpiar lista anterior
-        
+        columna_posts.controls.clear()
         try:
-            # Petición GET al endpoint /publicaciones/ que vimos en tu Swagger
-            respuesta = requests.get(f"{API_URL}/publicaciones/")
-            publicaciones = respuesta.json()
-            
-            # Si no hay nada, mostramos aviso
-            if not publicaciones:
-                 columna_posts.controls.append(ft.Text("No hay publicaciones aún."))
-            
-            # Creamos una tarjeta por cada publicación
-            for post in publicaciones:
-                card = ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.ListTile(
-                                leading=ft.Icon(ft.icons.PERSON),
-                                title=ft.Text(post['titulo'], weight="bold"),
-                                subtitle=ft.Text(post['contenido']),
-                            ),
-                        ]),
-                        padding=10,
+            res = requests.get(f"{API_URL}/publicaciones/")
+            if res.status_code == 200:
+                posts = res.json()
+                if not posts:
+                    columna_posts.controls.append(ft.Text("📭 No hay novedades."))
+                for post in posts:
+                    columna_posts.controls.append(
+                        ft.Card(
+                            content=ft.Container(
+                                content=ft.Column([
+                                    ft.Text(post['titulo'], size=20, weight="bold", color="cyan"),
+                                    ft.Divider(),
+                                    ft.Text(post['contenido'], size=16),
+                                ]),
+                                padding=15
+                            )
+                        )
                     )
-                )
-                columna_posts.controls.append(card)
-                
-        except Exception as error:
-            columna_posts.controls.append(ft.Text(f"Error de conexión: {error}", color="red"))
-        
+            else:
+                columna_posts.controls.append(ft.Text("Error al cargar posts", color="red"))
+        except Exception as err:
+            columna_posts.controls.append(ft.Text(f"Error de conexión: {err}", color="red"))
         page.update()
 
-    # Botón para recargar
-    boton_cargar = ft.ElevatedButton("Actualizar Muro", on_click=cargar_datos)
-
-    # Agregamos todo a la pantalla
-    page.add(
-        titulo,
-        boton_cargar,
-        columna_posts
+    vista_muro = ft.Container(
+        content=ft.Column([
+            ft.ElevatedButton("🔄 Actualizar", on_click=cargar_datos),
+            columna_posts
+        ]), padding=20
     )
-    
-    # Cargamos los datos al iniciar
+
+    # --- PESTAÑA 2: PUBLICAR ---
+    txt_titulo = ft.TextField(label="Título", border_color="blue")
+    txt_contenido = ft.TextField(label="¿Qué estás pensando?", multiline=True, min_lines=3)
+    lbl_resultado_publicar = ft.Text()
+
+    def enviar_publicacion(e):
+        nonlocal token_actual
+        if not token_actual:
+            lbl_resultado_publicar.value = "🔒 ¡Necesitas iniciar sesión primero!"
+            lbl_resultado_publicar.color = "red"
+            page.update()
+            return
+
+        headers = {"Authorization": f"Bearer {token_actual}"}
+        datos = {
+            "titulo": txt_titulo.value,
+            "contenido": txt_contenido.value,
+            "usuario_id": 0
+        }
+        
+        try:
+            res = requests.post(f"{API_URL}/publicar/", json=datos, headers=headers)
+            if res.status_code == 200:
+                lbl_resultado_publicar.value = "✅ ¡Publicado con éxito!"
+                lbl_resultado_publicar.color = "green"
+                txt_titulo.value = ""
+                txt_contenido.value = ""
+            else:
+                lbl_resultado_publicar.value = f"❌ Error: {res.text}"
+        except Exception as err:
+            lbl_resultado_publicar.value = f"Error: {err}"
+        page.update()
+
+    vista_publicar = ft.Container(
+        content=ft.Column([
+            ft.Text("Crear Nueva Publicación", size=25, weight="bold"),
+            txt_titulo,
+            txt_contenido,
+            ft.ElevatedButton("🚀 Publicar", on_click=enviar_publicacion),
+            lbl_resultado_publicar
+        ], spacing=20), padding=20
+    )
+
+    # --- PESTAÑA 3: CUENTA ---
+    txt_user = ft.TextField(label="Usuario (ej: AdminSupremo)")
+    txt_pass = ft.TextField(label="Contraseña", password=True, can_reveal_password=True)
+    lbl_login = ft.Text()
+
+    def iniciar_sesion(e):
+        nonlocal token_actual
+        try:
+            datos = {"username": txt_user.value, "password": txt_pass.value}
+            res = requests.post(f"{API_URL}/token", data=datos)
+            
+            if res.status_code == 200:
+                info = res.json()
+                token_actual = info['access_token']
+                lbl_login.value = f"🔓 ¡Hola {txt_user.value}! Ya tienes permiso."
+                lbl_login.color = "green"
+            else:
+                lbl_login.value = "❌ Datos incorrectos"
+                lbl_login.color = "red"
+        except Exception as err:
+            lbl_login.value = f"Error: {err}"
+        page.update()
+
+    vista_cuenta = ft.Container(
+        content=ft.Column([
+            ft.Text("Iniciar Sesión", size=25),
+            txt_user,
+            txt_pass,
+            ft.ElevatedButton("🔑 Entrar", on_click=iniciar_sesion),
+            lbl_login
+        ], spacing=20), padding=20
+    )
+
+    # --- NAVEGACIÓN ---
+    taps = ft.Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            ft.Tab(text="Muro", icon="home", content=vista_muro),
+            ft.Tab(text="Publicar", icon="add_circle", content=vista_publicar), # AQUÍ ESTABA EL ERROR iicon
+            ft.Tab(text="Cuenta", icon="person", content=vista_cuenta),
+        ],
+        expand=1,
+    )
+
+    page.add(taps)
     cargar_datos(None)
 
-# Ejecutar la app
 ft.app(target=main)
