@@ -125,19 +125,15 @@ def main(page: ft.Page):
         ], spacing=20), padding=20
     )
 
-    # --- NAVEGACIÓN ---
+   # --- NAVEGACIÓN ---
     taps = ft.Tabs(
         selected_index=0,
         animation_duration=300,
         tabs=[
-            ft.Tab(text="Muro", icon="home", content=vista_muro),
-            ft.Tab(text="Publicar", icon="add_circle", content=vista_publicar), # AQUÍ ESTABA EL ERROR iicon
-            ft.Tab(text="Cuenta", icon="person", content=vista_cuenta),
+            # Usamos tab_content con un ft.Text adentro para evitar el error
+            ft.Tab(tab_content=ft.Text("Muro"), icon="home", content=vista_muro),
+            ft.Tab(tab_content=ft.Text("Publicar"), icon="add_circle", content=vista_publicar),
+            ft.Tab(tab_content=ft.Text("Cuenta"), icon="person", content=vista_cuenta),
         ],
         expand=1,
     )
-
-    page.add(taps)
-    cargar_datos(None)
-
-ft.app(target=main)
