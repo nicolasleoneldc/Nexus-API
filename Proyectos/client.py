@@ -5,7 +5,7 @@ import requests
 API_URL = "https://nexus-api-ngen.onrender.com"
 
 def main(page: ft.Page):
-    print("⏳ Iniciando App... Por favor espera, el servidor puede estar despertando.")
+    print("⏳ Iniciando App...")
     page.title = "Nexus App"
     page.theme_mode = ft.ThemeMode.DARK
     page.scroll = "adaptive"
@@ -17,10 +17,10 @@ def main(page: ft.Page):
     columna_posts = ft.Column()
     
     def cargar_datos(e):
-        print("🔄 Intentando descargar datos del servidor...")
+        print("🔄 Descargando datos...")
         columna_posts.controls.clear()
         try:
-            # Ponemos un timeout para que no se congele para siempre
+            # Timeout de 60 segundos por si Render está dormido
             res = requests.get(f"{API_URL}/publicaciones/", timeout=60)
             if res.status_code == 200:
                 posts = res.json()
@@ -39,7 +39,7 @@ def main(page: ft.Page):
                             )
                         )
                     )
-                print("✅ Datos cargados correctamente.")
+                print("✅ Datos cargados.")
             else:
                 columna_posts.controls.append(ft.Text("Error al cargar posts", color="red"))
         except Exception as err:
@@ -106,7 +106,7 @@ def main(page: ft.Page):
     def iniciar_sesion(e):
         nonlocal token_actual
         try:
-            print(f"🔑 Intentando loguear a {txt_user.value}...")
+            print(f"🔑 Logueando a {txt_user.value}...")
             datos = {"username": txt_user.value, "password": txt_pass.value}
             res = requests.post(f"{API_URL}/token", data=datos)
             
@@ -133,21 +133,35 @@ def main(page: ft.Page):
         ], spacing=20), padding=20
     )
 
-    # --- NAVEGACIÓN (Corrección de Versión) ---
-    # Usamos tab_content que funciona en versiones viejas y nuevas
+    # --- NAVEGACIÓN "A PRUEBA DE FALLOS" ---
+    # 1. Creamos las pestañas vacías
+    tab1 = ft.Tab()
+    tab2 = ft.Tab()
+    tab3 = ft.Tab()
+
+    # 2. Asignamos propiedades una por una (Evita error de constructor)
+    tab1.text = "Muro"
+    tab1.icon = "home"
+    tab1.content = vista_muro
+
+    tab2.text = "Publicar"
+    tab2.icon = "add_circle"
+    tab2.content = vista_publicar
+
+    tab3.text = "Cuenta"
+    tab3.icon = "person"
+    tab3.content = vista_cuenta
+
+    # 3. Las metemos en el contenedor
     taps = ft.Tabs(
         selected_index=0,
         animation_duration=300,
-        tabs=[
-            ft.Tab(tab_content=ft.Text("Muro"), icon="home", content=vista_muro),
-            ft.Tab(tab_content=ft.Text("Publicar"), icon="add_circle", content=vista_publicar),
-            ft.Tab(tab_content=ft.Text("Cuenta"), icon="person", content=vista_cuenta),
-        ],
+        tabs=[tab1, tab2, tab3],
         expand=1,
     )
 
     page.add(taps)
-    # Cargamos datos AL FINAL
+    # Cargamos datos
     cargar_datos(None)
 
-ft.app(target=main)
+ft.app(target=main)t
