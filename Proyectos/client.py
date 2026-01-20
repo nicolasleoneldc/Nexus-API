@@ -5,6 +5,7 @@ import requests
 API_URL = "https://nexus-api-ngen.onrender.com"
 
 def main(page: ft.Page):
+    print("⏳ Iniciando App... Por favor espera, el servidor puede estar despertando.")
     page.title = "Nexus App"
     page.theme_mode = ft.ThemeMode.DARK
     page.scroll = "adaptive"
@@ -16,9 +17,11 @@ def main(page: ft.Page):
     columna_posts = ft.Column()
     
     def cargar_datos(e):
+        print("🔄 Intentando descargar datos del servidor...")
         columna_posts.controls.clear()
         try:
-            res = requests.get(f"{API_URL}/publicaciones/")
+            # Ponemos un timeout para que no se congele para siempre
+            res = requests.get(f"{API_URL}/publicaciones/", timeout=60)
             if res.status_code == 200:
                 posts = res.json()
                 if not posts:
@@ -36,9 +39,11 @@ def main(page: ft.Page):
                             )
                         )
                     )
+                print("✅ Datos cargados correctamente.")
             else:
                 columna_posts.controls.append(ft.Text("Error al cargar posts", color="red"))
         except Exception as err:
+            print(f"❌ Error: {err}")
             columna_posts.controls.append(ft.Text(f"Error de conexión: {err}", color="red"))
         page.update()
 
@@ -70,6 +75,7 @@ def main(page: ft.Page):
         }
         
         try:
+            print("🚀 Enviando publicación...")
             res = requests.post(f"{API_URL}/publicar/", json=datos, headers=headers)
             if res.status_code == 200:
                 lbl_resultado_publicar.value = "✅ ¡Publicado con éxito!"
@@ -100,6 +106,7 @@ def main(page: ft.Page):
     def iniciar_sesion(e):
         nonlocal token_actual
         try:
+            print(f"🔑 Intentando loguear a {txt_user.value}...")
             datos = {"username": txt_user.value, "password": txt_pass.value}
             res = requests.post(f"{API_URL}/token", data=datos)
             
@@ -108,6 +115,7 @@ def main(page: ft.Page):
                 token_actual = info['access_token']
                 lbl_login.value = f"🔓 ¡Hola {txt_user.value}! Ya tienes permiso."
                 lbl_login.color = "green"
+                print("✅ Login exitoso.")
             else:
                 lbl_login.value = "❌ Datos incorrectos"
                 lbl_login.color = "red"
@@ -125,15 +133,21 @@ def main(page: ft.Page):
         ], spacing=20), padding=20
     )
 
-   # --- NAVEGACIÓN ---
+    # --- NAVEGACIÓN (Corrección de Versión) ---
+    # Usamos tab_content que funciona en versiones viejas y nuevas
     taps = ft.Tabs(
         selected_index=0,
         animation_duration=300,
         tabs=[
-            # Usamos tab_content con un ft.Text adentro para evitar el error
             ft.Tab(tab_content=ft.Text("Muro"), icon="home", content=vista_muro),
             ft.Tab(tab_content=ft.Text("Publicar"), icon="add_circle", content=vista_publicar),
             ft.Tab(tab_content=ft.Text("Cuenta"), icon="person", content=vista_cuenta),
         ],
         expand=1,
     )
+
+    page.add(taps)
+    # Cargamos datos AL FINAL
+    cargar_datos(None)
+
+ft.app(target=main)
