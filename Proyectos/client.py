@@ -162,5 +162,5 @@ def main(page: ft.Page):
     
     # Cargamos el muro al inicio
     ir_a_muro(None)
-
+#ft.app(target=main)
 ft.app(target=main, view=ft.AppView.WEB_BROWSER)
